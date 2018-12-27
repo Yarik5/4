@@ -1,0 +1,47 @@
+1
+WITH MaxTotalDue AS
+(
+    select top 1 *
+    from SalesLT.SalesOrderHeader
+    order by SalesLT.SalesOrderHeader.TotalDue desc
+)
+SELECT TOP 1 *
+FROM   MaxTotalDue
+
+2
+DECLARE @the_most_expensive as Float;
+SET @the_most_expensive = (select top 1 SalesOrderHeader.TotalDue
+                from SalesLT.SalesOrderHeader
+                order by SalesLT.SalesOrderHeader.TotalDue desc
+                )
+SELECT @the_most_expensive as MaxTotalDue
+
+3
+SET DATEFORMAT YMD;
+
+WITH DateFrame(d1,d2)
+AS (
+SELECT CAST('2012-01-01' AS DATE) as d1, EOMONTH(CAST('2012-01-01' AS DATE)) as d2
+UNION ALL
+SELECT DATEADD(mm, 1, d1), EOMONTH(DATEADD(mm,1,d1))
+FROM DateFrame
+WHERE d1<DATEADD(mm, -1, DATEADD(yy, 1, CAST('2012-01-01' AS DATE)))
+)
+SELECT  a.CITY, d.d1 AS DATE_BEG, d.d2 AS DATE_END, SUM(h.TotalDue) AS SUMMA
+FROM DateFrame d, SalesLT.SalesOrderHeader h INNER JOIN SalesLT.Address a ON h.BillToAddressID=a.AddressID
+WHERE h.OrderDate BETWEEN d.d1 AND d.d2
+GROUP BY  a.City, d.d1, d.d2
+
+4
+CREATE PROCEDURE SalesLT_004
+     @DATE_BEG DATE, @DATE_END DATE
+ AS
+ BEGIN
+    SELECT h.ShipMethod, h.PurchaseOrderNumber, h.DueDate, h.TotalDue
+    FROM SalesLT.SalesOrderHeader h
+    WHERE h.TotalDue IN(SELECT max(a.TotalDue) FROM SalesLT.SalesOrderHeader a) and DueDate BETWEEN  @DATE_BEG and @DATE_END
+    GROUP BY h.ShipMethod, h.PurchaseOrderNumber, h.DueDate, h.TotalDue
+ END
+
+ EXEC SalesLT_004 @DATE_BEG = '2012-01-01', @DATE_END = '2018-01-01';
+GO
